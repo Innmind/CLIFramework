@@ -17,20 +17,49 @@ final class Application
     /** @var \Closure(Environment, OperatingSystem): list<Command> */
     private \Closure $commands;
 
-    public function __construct(Environment $env, OperatingSystem $os)
-    {
+    /**
+     * @param callable(Environment, OperatingSystem): list<Command> $commands
+     */
+    private function __construct(
+        Environment $env,
+        OperatingSystem $os,
+        callable $commands
+    ) {
         $this->env = $env;
         $this->os = $os;
-        $this->commands = static fn(): array => [new HelloWorld];
+        $this->commands = \Closure::fromCallable($commands);
+    }
+
+    public static function of(Environment $env, OperatingSystem $os): self
+    {
+        return new self(
+            $env,
+            $os,
+            static fn(): array => [],
+        );
+    }
+
+    /**
+     * @param callable(Environment, OperatingSystem): list<Command> $commands
+     */
+    public function commands(callable $commands): self
+    {
+        return new self(
+            $this->env,
+            $this->os,
+            fn(Environment $env, OperatingSystem $os): array => \array_merge(
+                ($this->commands)($env, $os),
+                $commands($env, $os),
+            ),
+        );
     }
 
     public function run(): void
     {
-        $run = new Commands(...($this->commands)(
-            $this->env,
-            $this->os,
-        ));
+        $commands = ($this->commands)($this->env, $this->os);
+        $commands = \count($commands) === 0 ? [new HelloWorld] : $commands;
 
+        $run = new Commands(...$commands);
         $run($this->env);
     }
 }
