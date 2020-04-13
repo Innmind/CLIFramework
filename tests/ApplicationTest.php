@@ -13,11 +13,15 @@ use Innmind\CLI\{
 use Innmind\OperatingSystem\{
     OperatingSystem,
     Filesystem,
+    CurrentProcess,
 };
 use Innmind\Filesystem\{
     Adapter\InMemory,
     File\File,
 };
+use Innmind\Server\Status\Server;
+use Innmind\Server\Control\Server\Process\Pid;
+use Innmind\SilentCartographer\OperatingSystem as SilentCartographer;
 use Innmind\Stream\Readable\Stream;
 use Innmind\Url\Path;
 use Innmind\Stream\Writable;
@@ -43,11 +47,10 @@ class ApplicationTest extends TestCase
             ->expects($this->once())
             ->method('write')
             ->with(Str::of("Hello world\n"));
+        $os = $this->createMock(OperatingSystem::class);
 
-        $app = Application::of(
-            $env,
-            $this->createMock(OperatingSystem::class),
-        );
+        $app = Application::of($env, $os);
+        $app = $app->disableSilentCartographer();
 
         $this->assertNull($app->run());
     }
@@ -80,11 +83,10 @@ class ApplicationTest extends TestCase
                 return !$text->contains('Hello world') &&
                     $text->contains('foo');
             }));
+        $os = $this->createMock(OperatingSystem::class);
 
-        $app = Application::of(
-            $env,
-            $this->createMock(OperatingSystem::class),
-        );
+        $app = Application::of($env, $os);
+        $app = $app->disableSilentCartographer();
         $app2 = $app->commands(fn() => [$command]);
 
         $this->assertInstanceOf(Application::class, $app2);
@@ -128,11 +130,10 @@ class ApplicationTest extends TestCase
                 return !$text->contains('Hello world') &&
                     ($text->contains('foo') || $text->contains('bar'));
             }));
+        $os = $this->createMock(OperatingSystem::class);
 
-        $app = Application::of(
-            $env,
-            $this->createMock(OperatingSystem::class),
-        );
+        $app = Application::of($env, $os);
+        $app = $app->disableSilentCartographer();
         $app2 = $app->commands(fn() => [$foo, $bar]);
 
         $this->assertInstanceOf(Application::class, $app2);
@@ -169,6 +170,7 @@ class ApplicationTest extends TestCase
 
         $app = Application::of($env, $os);
         $app2 = $app
+            ->disableSilentCartographer()
             ->commands(fn() => [$command])
             ->configAt($configPath);
 
@@ -210,6 +212,7 @@ class ApplicationTest extends TestCase
 
         $app = Application::of($env, $os);
         $app2 = $app
+            ->disableSilentCartographer()
             ->commands(fn() => [$command])
             ->configAt($configPath);
 
@@ -260,6 +263,7 @@ class ApplicationTest extends TestCase
 
         $app = Application::of($env, $os);
         $app2 = $app
+            ->disableSilentCartographer()
             ->commands(function($env) use ($command) {
                 if (!$env->variables()->contains('FOO')) {
                     $this->fail('Dot env not loaded');
@@ -272,5 +276,59 @@ class ApplicationTest extends TestCase
         $this->assertInstanceOf(Application::class, $app2);
         $this->assertNotSame($app, $app2);
         $this->assertNull($app2->run());
+    }
+
+    public function testSilentCartographerEnabledByDefaultWithWorkingDirectoryAsRoomLocation()
+    {
+        $env = $this->createMock(Environment::class);
+        $env
+            ->method('arguments')
+            ->willReturn(Sequence::strings());
+        $env
+            ->method('workingDirectory')
+            ->willReturn(Path::of('/working/directory/'));
+        $env
+            ->method('output')
+            ->willReturn($output = $this->createMock(Writable::class));
+        $output
+            ->expects($this->once())
+            ->method('write')
+            ->with(Str::of("foo"));
+        $os = $this->createMock(OperatingSystem::class);
+        $os
+            ->method('process')
+            ->willReturn($process = $this->createMock(CurrentProcess::class));
+        $process
+            ->method('id')
+            ->willReturn(new Pid(42));
+        $os
+            ->method('status')
+            ->willReturn($status = $this->createMock(Server::class));
+        $status
+            ->method('tmp')
+            ->willReturn(Path::of('/tmp/'));
+
+        $command = new class implements Command {
+            public function __invoke(Environment $env, Arguments $arguments, Options $options): void
+            {
+                $env->output()->write(Str::of('foo'));
+            }
+
+            public function toString(): string
+            {
+                return 'foo';
+            }
+        };
+
+        $app = Application::of($env, $os);
+        $app = $app->commands(function($env, $os) use ($command) {
+            if (!$os instanceof SilentCartographer) {
+                $this->fail('Silent cartographer not enabled');
+            }
+
+            return [$command];
+        });
+
+        $this->assertNull($app->run());
     }
 }
