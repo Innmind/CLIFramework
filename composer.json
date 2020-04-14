@@ -2,7 +2,7 @@
     "name": "innmind/cli-framework",
     "type": "library",
     "description": "CLI framework",
-    "keywords": ["assistant"],
+    "keywords": ["cli", "framework"],
     "homepage": "http://github.com/Innmind/CLIFramework",
     "license": "MIT",
     "authors": [
