@@ -19,7 +19,9 @@ use Innmind\CLI\{
     Environment,
     Command,
 };
+use Innmind\CLI\Framework\Application;
 use Innmind\OperatingSystem\OperatingSystem;
+use Innmind\Url\Path;
 
 new class extends Main {
     protected function main(Environment $env, OperatingSystem $os): void
