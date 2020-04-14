@@ -14,6 +14,7 @@ use Innmind\OperatingSystem\{
     OperatingSystem,
     Filesystem,
     CurrentProcess,
+    Remote,
 };
 use Innmind\Filesystem\{
     Adapter\InMemory,
@@ -22,6 +23,7 @@ use Innmind\Filesystem\{
 use Innmind\Server\Status\Server;
 use Innmind\Server\Control\Server\Process\Pid;
 use Innmind\SilentCartographer\OperatingSystem as SilentCartographer;
+use Innmind\Debug\Profiler\Section\CaptureAppGraph;
 use Innmind\Stream\Readable\Stream;
 use Innmind\Url\Path;
 use Innmind\Stream\Writable;
@@ -40,6 +42,9 @@ class ApplicationTest extends TestCase
         $env
             ->method('arguments')
             ->willReturn(Sequence::strings());
+        $env
+            ->method('variables')
+            ->willReturn(Map::of('string', 'string'));
         $env
             ->method('output')
             ->willReturn($output = $this->createMock(Writable::class));
@@ -73,6 +78,9 @@ class ApplicationTest extends TestCase
         $env
             ->method('arguments')
             ->willReturn(Sequence::strings());
+        $env
+            ->method('variables')
+            ->willReturn(Map::of('string', 'string'));
         $env
             ->method('output')
             ->willReturn($output = $this->createMock(Writable::class));
@@ -122,6 +130,9 @@ class ApplicationTest extends TestCase
             ->method('arguments')
             ->willReturn(Sequence::strings());
         $env
+            ->method('variables')
+            ->willReturn(Map::of('string', 'string'));
+        $env
             ->method('output')
             ->willReturn($output = $this->createMock(Writable::class));
         $output
@@ -148,6 +159,9 @@ class ApplicationTest extends TestCase
         $env
             ->method('arguments')
             ->willReturn(Sequence::strings());
+        $env
+            ->method('variables')
+            ->willReturn(Map::of('string', 'string'));
         $os = $this->createMock(OperatingSystem::class);
         $os
             ->method('filesystem')
@@ -186,6 +200,9 @@ class ApplicationTest extends TestCase
         $env
             ->method('arguments')
             ->willReturn(Sequence::strings());
+        $env
+            ->method('variables')
+            ->willReturn(Map::of('string', 'string'));
         $os = $this->createMock(OperatingSystem::class);
         $os
             ->method('filesystem')
@@ -228,6 +245,9 @@ class ApplicationTest extends TestCase
         $env
             ->method('arguments')
             ->willReturn(Sequence::strings());
+        $env
+            ->method('variables')
+            ->willReturn(Map::of('string', 'string'));
         $env
             ->method('variables')
             ->willReturn(Map::of('string', 'string'));
@@ -285,6 +305,9 @@ class ApplicationTest extends TestCase
             ->method('arguments')
             ->willReturn(Sequence::strings());
         $env
+            ->method('variables')
+            ->willReturn(Map::of('string', 'string'));
+        $env
             ->method('workingDirectory')
             ->willReturn(Path::of('/working/directory/'));
         $env
@@ -330,5 +353,46 @@ class ApplicationTest extends TestCase
         });
 
         $this->assertNull($app->run());
+    }
+
+    public function testAllowToDisableProfilerSections()
+    {
+        $env = $this->createMock(Environment::class);
+        $env
+            ->method('arguments')
+            ->willReturn(Sequence::strings());
+        $env
+            ->method('variables')
+            ->willReturn(Map::of('string', 'string'));
+        $env
+            ->method('output')
+            ->willReturn($output = $this->createMock(Writable::class));
+        $output
+            ->expects($this->once())
+            ->method('write')
+            ->with(Str::of("foo"));
+        $os = $this->createMock(OperatingSystem::class);
+
+        $command = new class implements Command {
+            public function __invoke(Environment $env, Arguments $arguments, Options $options): void
+            {
+                $env->output()->write(Str::of('foo'));
+            }
+
+            public function toString(): string
+            {
+                return 'foo';
+            }
+        };
+
+        $app = Application::of($env, $os);
+        $app2 = $app
+            ->disableSilentCartographer()
+            ->disableProfilerSection(CaptureAppGraph::class)
+            ->commands(fn($env, $os) => [$command]);
+
+        $this->assertInstanceOf(Application::class, $app2);
+        $this->assertNotSame($app2, $app);
+        $this->assertNull($app2->run());
     }
 }
