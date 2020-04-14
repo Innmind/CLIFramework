@@ -247,7 +247,11 @@ class ApplicationTest extends TestCase
             ->willReturn(Sequence::strings());
         $env
             ->method('variables')
-            ->willReturn(Map::of('string', 'string'));
+            ->willReturn(
+                Map::of('string', 'string')
+                    ('FOO', 'bar')
+                    ('BAZ', 'bar')
+            );
         $env
             ->method('variables')
             ->willReturn(Map::of('string', 'string'));
@@ -265,13 +269,21 @@ class ApplicationTest extends TestCase
             ->willReturn($config = new InMemory);
         $config->add(File::named(
             '.env',
-            Stream::ofContent('FOO=bar'),
+            Stream::ofContent("FOO=baz\nBAR=foo"),
         ));
         $command = new class implements Command {
             public function __invoke(Environment $env, Arguments $arguments, Options $options): void
             {
-                if (!$env->variables()->contains('FOO')) {
+                if ($env->variables()->get('FOO') !== 'baz') {
+                    throw new \Exception('Dot env do not override real variables');
+                }
+
+                if (!$env->variables()->contains('BAR')) {
                     throw new \Exception('Dot env not loaded');
+                }
+
+                if (!$env->variables()->contains('BAZ')) {
+                    throw new \Exception('Real variables lost');
                 }
             }
 
@@ -285,8 +297,14 @@ class ApplicationTest extends TestCase
         $app2 = $app
             ->disableSilentCartographer()
             ->commands(function($env) use ($command) {
-                if (!$env->variables()->contains('FOO')) {
+                $this->assertSame('baz', $env->variables()->get('FOO'));
+
+                if (!$env->variables()->contains('BAR')) {
                     $this->fail('Dot env not loaded');
+                }
+
+                if (!$env->variables()->contains('BAZ')) {
+                    $this->fail('Real variables lost');
                 }
 
                 return [$command];
