@@ -94,10 +94,12 @@ final class Application
             $this->env,
             $this->os,
             $this->commands,
-            static fn(Environment $env, OperatingSystem $os): Environment => new DotEnvAware(
-                $env,
-                $os->filesystem(),
-                $path,
+            static fn(Environment $env, OperatingSystem $os): Environment => new KeepVariablesInMemory(
+                new DotEnvAware(
+                    $env,
+                    $os->filesystem(),
+                    $path,
+                ),
             ),
             $this->enableSilentCartographer,
             [],
