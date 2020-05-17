@@ -15,23 +15,27 @@ composer require innmind/cli-framework
 ## Usage
 
 ```php
+<?php
+
 use Innmind\CLI\{
     Environment,
     Command,
 };
-use Innmind\CLI\Framework\Application;
+use Innmind\CLI\Framework\{
+    Application,
+    Main,
+};
 use Innmind\OperatingSystem\OperatingSystem;
 use Innmind\Url\Path;
 
 new class extends Main {
-    protected function main(Environment $env, OperatingSystem $os): void
+    protected function configure(Application $app): Application
     {
-        Application::of($env, $os)
+        return $app
             ->configAt(Path::of('/path/to/config/directory/'))
             ->commands(fn(Environment $env, OperatingSystem $os): array => [
                 // a list of objects implementing Command
-            ])
-            ->run();
+            ]);
     }
 }
 ```
@@ -41,3 +45,5 @@ This simple example will try to locate a file named `.env` in the directory prov
 By default it enables the usage of [`innmind/silent-cartographer`](https://github.com/innmind/silentcartographer), but can be disabled by calling `->disableSilentCartographer()`.
 
 When a `PROFILER` environment variable is declared it will enable [`innmind/debug`](https://github.com/innmind/debug), you can disable specific sections of the profiler by calling `->disableProfilerSection(...$sectionsClassNameToDisable)`.
+
+When your CLI application communicate with external services you should call `->useResilientOperatingSystem()` so it accomodate inconsistencies due to unreliable network.

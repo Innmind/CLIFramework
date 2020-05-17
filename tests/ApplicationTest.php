@@ -306,14 +306,8 @@ class ApplicationTest extends TestCase
             ->commands(function($env) use ($command) {
                 $this->assertInstanceOf(KeepVariablesInMemory::class, $env);
                 $this->assertSame('baz', $env->variables()->get('FOO'));
-
-                if (!$env->variables()->contains('BAR')) {
-                    $this->fail('Dot env not loaded');
-                }
-
-                if (!$env->variables()->contains('BAZ')) {
-                    $this->fail('Real variables lost');
-                }
+                $this->assertTrue($env->variables()->contains('BAR'), 'Dot env not loaded');
+                $this->assertTrue($env->variables()->contains('BAZ'), 'Real variables lost');
 
                 return [$command];
             })
@@ -371,9 +365,7 @@ class ApplicationTest extends TestCase
 
         $app = Application::of($env, $os);
         $app = $app->commands(function($env, $os) use ($command) {
-            if (!$os instanceof SilentCartographer) {
-                $this->fail('Silent cartographer not enabled');
-            }
+            $this->assertInstanceOf(SilentCartographer::class, $os);
 
             return [$command];
         });
@@ -420,5 +412,49 @@ class ApplicationTest extends TestCase
         $this->assertInstanceOf(Application::class, $app2);
         $this->assertNotSame($app2, $app);
         $this->assertNull($app2->run());
+    }
+
+    public function testUseStandardOperatingSystemAbstractionByDefault()
+    {
+        $env = $this->createMock(Environment::class);
+        $env
+            ->method('arguments')
+            ->willReturn(Sequence::strings());
+        $env
+            ->method('variables')
+            ->willReturn(Map::of('string', 'string'));
+        $expected = $this->createMock(OperatingSystem::class);
+
+        $app = Application::of($env, $expected)->disableSilentCartographer();
+        $app = $app->commands(function($env, $os) use ($expected) {
+            $this->assertSame($expected, $os);
+
+            return [];
+        });
+
+        $this->assertNull($app->run());
+    }
+
+    public function testUseResilientOperatingSystem()
+    {
+        $env = $this->createMock(Environment::class);
+        $env
+            ->method('arguments')
+            ->willReturn(Sequence::strings());
+        $env
+            ->method('variables')
+            ->willReturn(Map::of('string', 'string'));
+        $expected = $this->createMock(OperatingSystem::class);
+
+        $app = Application::of($env, $expected)
+            ->useResilientOperatingSystem()
+            ->disableSilentCartographer();
+        $app = $app->commands(function($env, $os) {
+            $this->assertInstanceOf(OperatingSystem\Resilient::class, $os);
+
+            return [];
+        });
+
+        $this->assertNull($app->run());
     }
 }

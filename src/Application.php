@@ -29,6 +29,8 @@ final class Application
     private \Closure $loadDotEnv;
     /** @var \Closure(Environment, OperatingSystem): OperatingSystem */
     private \Closure $enableSilentCartographer;
+    /** @var \Closure(OperatingSystem): OperatingSystem */
+    private \Closure $useResilientOperatingSystem;
     /** @var list<class-string<Section>> */
     private array $disabledSections;
 
@@ -36,6 +38,7 @@ final class Application
      * @param callable(Environment, OperatingSystem): list<Command> $commands
      * @param callable(Environment, OperatingSystem): Environment $loadDotEnv
      * @param callable(Environment, OperatingSystem): OperatingSystem $enableSilentCartographer
+     * @param callable(OperatingSystem): OperatingSystem $useResilientOperatingSystem
      * @param list<class-string<Section>> $disabledSections
      */
     private function __construct(
@@ -44,6 +47,7 @@ final class Application
         callable $commands,
         callable $loadDotEnv,
         callable $enableSilentCartographer,
+        callable $useResilientOperatingSystem,
         array $disabledSections
     ) {
         $this->env = $env;
@@ -51,6 +55,7 @@ final class Application
         $this->commands = \Closure::fromCallable($commands);
         $this->loadDotEnv = \Closure::fromCallable($loadDotEnv);
         $this->enableSilentCartographer = \Closure::fromCallable($enableSilentCartographer);
+        $this->useResilientOperatingSystem = \Closure::fromCallable($useResilientOperatingSystem);
         $this->disabledSections = $disabledSections;
     }
 
@@ -66,6 +71,7 @@ final class Application
                     $env->workingDirectory(),
                 ),
             ),
+            static fn(OperatingSystem $os): OperatingSystem => $os,
             [],
         );
     }
@@ -84,6 +90,7 @@ final class Application
             ),
             $this->loadDotEnv,
             $this->enableSilentCartographer,
+            $this->useResilientOperatingSystem,
             [],
         );
     }
@@ -102,6 +109,7 @@ final class Application
                 ),
             ),
             $this->enableSilentCartographer,
+            $this->useResilientOperatingSystem,
             [],
         );
     }
@@ -114,6 +122,7 @@ final class Application
             $this->commands,
             $this->loadDotEnv,
             static fn(Environment $env, OperatingSystem $os): OperatingSystem => $os,
+            $this->useResilientOperatingSystem,
             [],
         );
     }
@@ -129,6 +138,7 @@ final class Application
             $this->commands,
             $this->loadDotEnv,
             $this->enableSilentCartographer,
+            $this->useResilientOperatingSystem,
             \array_merge(
                 $this->disabledSections,
                 $sections,
@@ -136,9 +146,25 @@ final class Application
         );
     }
 
+    public function useResilientOperatingSystem(): self
+    {
+        return new self(
+            $this->env,
+            $this->os,
+            $this->commands,
+            $this->loadDotEnv,
+            $this->enableSilentCartographer,
+            static fn(OperatingSystem $os): OperatingSystem => new OperatingSystem\Resilient($os),
+            $this->disabledSections,
+        );
+    }
+
     public function run(): void
     {
         $os = ($this->enableSilentCartographer)($this->env, $this->os);
+        // done after the silent cartographer so that retries show up in the
+        // cartographer panel
+        $os = ($this->useResilientOperatingSystem)($os);
         $env = ($this->loadDotEnv)($this->env, $os);
         $debugEnabled = $env->variables()->contains('PROFILER');
         $wrapCommands = static fn(Command ...$commands): array => $commands;
