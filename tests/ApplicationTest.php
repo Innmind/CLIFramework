@@ -421,4 +421,48 @@ class ApplicationTest extends TestCase
         $this->assertNotSame($app2, $app);
         $this->assertNull($app2->run());
     }
+
+    public function testUseStandardOperatingSystemAbstractionByDefault()
+    {
+        $env = $this->createMock(Environment::class);
+        $env
+            ->method('arguments')
+            ->willReturn(Sequence::strings());
+        $env
+            ->method('variables')
+            ->willReturn(Map::of('string', 'string'));
+        $expected = $this->createMock(OperatingSystem::class);
+
+        $app = Application::of($env, $expected)->disableSilentCartographer();
+        $app = $app->commands(function($env, $os) use ($expected) {
+            $this->assertSame($expected, $os);
+
+            return [];
+        });
+
+        $this->assertNull($app->run());
+    }
+
+    public function testUseResilientOperatingSystem()
+    {
+        $env = $this->createMock(Environment::class);
+        $env
+            ->method('arguments')
+            ->willReturn(Sequence::strings());
+        $env
+            ->method('variables')
+            ->willReturn(Map::of('string', 'string'));
+        $expected = $this->createMock(OperatingSystem::class);
+
+        $app = Application::of($env, $expected)
+            ->useResilientOperatingSystem()
+            ->disableSilentCartographer();
+        $app = $app->commands(function($env, $os) {
+            $this->assertInstanceOf(OperatingSystem\Resilient::class, $os);
+
+            return [];
+        });
+
+        $this->assertNull($app->run());
+    }
 }

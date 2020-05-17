@@ -19,7 +19,8 @@
         "innmind/cli": "~2.0",
         "symfony/dotenv": "^5.0",
         "innmind/silent-cartographer": "^2.0",
-        "innmind/debug": "^2.0"
+        "innmind/debug": "^2.0",
+        "innmind/operating-system": "^2.1"
     },
     "autoload": {
         "psr-4": {
