@@ -20,6 +20,7 @@ use Innmind\Immutable\{
 };
 use function Innmind\SilentCartographer\bootstrap as cartographer;
 use function Innmind\Debug\bootstrap as debug;
+use function Innmind\Stack\stack;
 use function Innmind\Immutable\unwrap;
 
 final class Application
@@ -170,7 +171,7 @@ final class Application
         $os = ($this->useResilientOperatingSystem)($os);
         $env = ($this->loadDotEnv)($this->env, $os);
         $debugEnabled = $env->variables()->contains('PROFILER');
-        $wrapCommands = static fn(Command ...$commands): array => $commands;
+        $middlewares = [static fn(array $commands): array => $commands];
 
         if ($debugEnabled) {
             /** @var Map<string, scalar> */
@@ -183,7 +184,8 @@ final class Application
                 Set::strings(...$this->disabledSections),
             );
             $os = $debug['os']();
-            $wrapCommands = static fn(Command ...$commands): array => unwrap(
+            /** @psalm-suppress MixedArgument */
+            $middlewares[] = static fn(array $commands): array => unwrap(
                 $debug['cli'](...$commands),
             );
         }
@@ -191,9 +193,8 @@ final class Application
         $commands = ($this->commands)($env, $os);
         $commands = \count($commands) === 0 ? [new HelloWorld] : $commands;
 
-        if ($debugEnabled) {
-            $commands = $wrapCommands(...$commands);
-        }
+        /** @var list<Command> */
+        $commands = stack(...$middlewares)($commands);
 
         $run = new Commands(...$commands);
         $run($env);
