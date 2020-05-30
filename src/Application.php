@@ -14,7 +14,10 @@ use Innmind\Url\{
     Path,
     Url,
 };
-use Innmind\Immutable\Set;
+use Innmind\Immutable\{
+    Set,
+    Map,
+};
 use function Innmind\SilentCartographer\bootstrap as cartographer;
 use function Innmind\Debug\bootstrap as debug;
 use function Innmind\Immutable\unwrap;
@@ -170,10 +173,12 @@ final class Application
         $wrapCommands = static fn(Command ...$commands): array => $commands;
 
         if ($debugEnabled) {
+            /** @var Map<string, scalar> */
+            $variables = $env->variables()->toMapOf('string', 'scalar');
             $debug = debug(
                 $os,
                 Url::of($env->variables()->get('PROFILER')),
-                $env->variables(),
+                $variables,
                 null,
                 Set::strings(...$this->disabledSections),
             );
