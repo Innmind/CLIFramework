@@ -95,7 +95,7 @@ final class Application
             $this->loadDotEnv,
             $this->enableSilentCartographer,
             $this->useResilientOperatingSystem,
-            [],
+            $this->disabledSections,
         );
     }
 
@@ -114,7 +114,7 @@ final class Application
             ),
             $this->enableSilentCartographer,
             $this->useResilientOperatingSystem,
-            [],
+            $this->disabledSections,
         );
     }
 
@@ -123,11 +123,12 @@ final class Application
         return new self(
             $this->env,
             $this->os,
+            $this->container,
             $this->commands,
             $this->loadDotEnv,
             static fn(Environment $env, OperatingSystem $os): OperatingSystem => $os,
             $this->useResilientOperatingSystem,
-            [],
+            $this->disabledSections,
         );
     }
 
