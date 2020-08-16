@@ -91,7 +91,7 @@ final class Application
     }
 
     /**
-     * @param callable(Environment, OperatingSystem): list<Command> $commands
+     * @param callable(Environment, OperatingSystem, ServiceLocator): list<Command> $commands
      */
     public function commands(callable $commands): self
     {
@@ -101,7 +101,7 @@ final class Application
             $this->container,
             fn(Environment $env, OperatingSystem $os, Container $container): array => \array_merge(
                 ($this->commands)($env, $os, $container),
-                $commands($env, $os),
+                $commands($env, $os, $container),
             ),
             $this->loadDotEnv,
             $this->enableSilentCartographer,
