@@ -122,7 +122,7 @@ final class Application
             $this->container,
             fn(Environment $env, OperatingSystem $os, Container $get): array => \array_merge(
                 ($this->commands)($env, $os, $get),
-                [$get($serviceName)],
+                [new DeferCommand($get, $serviceName)],
             ),
             $this->loadDotEnv,
             $this->enableSilentCartographer,
