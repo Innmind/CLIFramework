@@ -23,6 +23,7 @@ use Innmind\Filesystem\{
     Adapter\InMemory,
     File\File,
 };
+use Innmind\DI\Exception\ServiceNotFound;
 use Innmind\Server\Status\Server;
 use Innmind\Server\Control\Server\Process\Pid;
 use Innmind\SilentCartographer\OperatingSystem as SilentCartographer;
@@ -36,9 +37,15 @@ use Innmind\Immutable\{
     Map,
 };
 use PHPUnit\Framework\TestCase;
+use Innmind\BlackBox\{
+    PHPUnit\BlackBox,
+    Set,
+};
 
 class ApplicationTest extends TestCase
 {
+    use BlackBox;
+
     public function testRunAHelloWorldByDefault()
     {
         $env = $this->createMock(Environment::class);
@@ -456,5 +463,82 @@ class ApplicationTest extends TestCase
         });
 
         $this->assertNull($app->run());
+    }
+
+    public function testAbilityToDefineCommandFromAService()
+    {
+        $this
+            ->forAll(
+                Set\Unicode::strings(),
+                Set\Unicode::strings(),
+                Set\Unicode::strings(),
+            )
+            ->then(function($command, $dep, $toPrint) {
+                $env = $this->createMock(Environment::class);
+                $env
+                    ->method('arguments')
+                    ->willReturn(Sequence::strings());
+                $env
+                    ->method('variables')
+                    ->willReturn(Map::of('string', 'string'));
+                $env
+                    ->method('output')
+                    ->willReturn($output = $this->createMock(Writable::class));
+                $output
+                    ->expects($this->once())
+                    ->method('write')
+                    ->with(Str::of($toPrint));
+
+                $app = Application::of($env, $this->createMock(OperatingSystem::class))
+                    ->disableSilentCartographer()
+                    ->command($command)
+                    ->service($command, fn($env, $os, $get) => new class($get($dep)) implements Command {
+                        private $dep;
+
+                        public function __construct($dep)
+                        {
+                            $this->dep = $dep;
+                        }
+
+                        public function __invoke(Environment $env, Arguments $arguments, Options $options): void
+                        {
+                            $env->output()->write($this->dep);
+                        }
+
+                        public function toString(): string
+                        {
+                            return 'foo';
+                        }
+                    })
+                    ->service($dep, fn() => Str::of($toPrint));
+
+                $this->assertNull($app->run());
+            });
+    }
+
+    public function testThrowWhenCommandServiceNotDefined()
+    {
+        $this
+            ->forAll(Set\Unicode::strings())
+            ->then(function($command) {
+                $env = $this->createMock(Environment::class);
+                $env
+                    ->method('arguments')
+                    ->willReturn(Sequence::strings());
+                $env
+                    ->method('variables')
+                    ->willReturn(Map::of('string', 'string'));
+
+                $app = Application::of($env, $this->createMock(OperatingSystem::class))
+                    ->disableSilentCartographer()
+                    ->command($command);
+
+                try {
+                    $app->run();
+                    $this->fail('it should throw');
+                } catch (ServiceNotFound $e) {
+                    $this->assertSame($command, $e->getMessage());
+                }
+            });
     }
 }

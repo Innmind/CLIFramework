@@ -9,6 +9,10 @@ use Innmind\CLI\{
     Commands,
 };
 use Innmind\OperatingSystem\OperatingSystem;
+use Innmind\DI\{
+    Container,
+    ServiceLocator,
+};
 use Innmind\Debug\Profiler\Section;
 use Innmind\Url\{
     Path,
@@ -27,7 +31,9 @@ final class Application
 {
     private Environment $env;
     private OperatingSystem $os;
-    /** @var \Closure(Environment, OperatingSystem): list<Command> */
+    /** @var \Closure(Environment, OperatingSystem): Container */
+    private \Closure $container;
+    /** @var \Closure(Environment, OperatingSystem, Container): list<Command> */
     private \Closure $commands;
     /** @var \Closure(Environment, OperatingSystem): Environment */
     private \Closure $loadDotEnv;
@@ -39,7 +45,8 @@ final class Application
     private array $disabledSections;
 
     /**
-     * @param callable(Environment, OperatingSystem): list<Command> $commands
+     * @param callable(Environment, OperatingSystem): Container $container
+     * @param callable(Environment, OperatingSystem, Container): list<Command> $commands
      * @param callable(Environment, OperatingSystem): Environment $loadDotEnv
      * @param callable(Environment, OperatingSystem): OperatingSystem $enableSilentCartographer
      * @param callable(OperatingSystem): OperatingSystem $useResilientOperatingSystem
@@ -48,6 +55,7 @@ final class Application
     private function __construct(
         Environment $env,
         OperatingSystem $os,
+        callable $container,
         callable $commands,
         callable $loadDotEnv,
         callable $enableSilentCartographer,
@@ -56,6 +64,7 @@ final class Application
     ) {
         $this->env = $env;
         $this->os = $os;
+        $this->container = \Closure::fromCallable($container);
         $this->commands = \Closure::fromCallable($commands);
         $this->loadDotEnv = \Closure::fromCallable($loadDotEnv);
         $this->enableSilentCartographer = \Closure::fromCallable($enableSilentCartographer);
@@ -68,6 +77,7 @@ final class Application
         return new self(
             $env,
             $os,
+            static fn(): Container => new Container,
             static fn(): array => [],
             static fn(Environment $env): Environment => $env,
             static fn(Environment $env, OperatingSystem $os): OperatingSystem => cartographer($os)['cli'](
@@ -81,21 +91,63 @@ final class Application
     }
 
     /**
-     * @param callable(Environment, OperatingSystem): list<Command> $commands
+     * @param callable(Environment, OperatingSystem, ServiceLocator): list<Command> $commands
      */
     public function commands(callable $commands): self
     {
         return new self(
             $this->env,
             $this->os,
-            fn(Environment $env, OperatingSystem $os): array => \array_merge(
-                ($this->commands)($env, $os),
-                $commands($env, $os),
+            $this->container,
+            fn(Environment $env, OperatingSystem $os, Container $container): array => \array_merge(
+                ($this->commands)($env, $os, $container),
+                $commands($env, $os, $container),
             ),
             $this->loadDotEnv,
             $this->enableSilentCartographer,
             $this->useResilientOperatingSystem,
-            [],
+            $this->disabledSections,
+        );
+    }
+
+    /**
+     * Register the service with the given name as a command
+     */
+    public function command(string $serviceName): self
+    {
+        /** @psalm-suppress ArgumentTypeCoercion Impossible to type the container */
+        return new self(
+            $this->env,
+            $this->os,
+            $this->container,
+            fn(Environment $env, OperatingSystem $os, Container $get): array => \array_merge(
+                ($this->commands)($env, $os, $get),
+                [new DeferCommand($get, $serviceName)],
+            ),
+            $this->loadDotEnv,
+            $this->enableSilentCartographer,
+            $this->useResilientOperatingSystem,
+            $this->disabledSections,
+        );
+    }
+
+    /**
+     * @param callable(Environment, OperatingSystem, ServiceLocator): object $factory
+     */
+    public function service(string $name, callable $factory): self
+    {
+        return new self(
+            $this->env,
+            $this->os,
+            fn(Environment $env, OperatingSystem $os): Container => ($this->container)($env, $os)->add(
+                $name,
+                fn(ServiceLocator $get): object => $factory($env, $os, $get),
+            ),
+            $this->commands,
+            $this->loadDotEnv,
+            $this->enableSilentCartographer,
+            $this->useResilientOperatingSystem,
+            $this->disabledSections,
         );
     }
 
@@ -104,6 +156,7 @@ final class Application
         return new self(
             $this->env,
             $this->os,
+            $this->container,
             $this->commands,
             static fn(Environment $env, OperatingSystem $os): Environment => new KeepVariablesInMemory(
                 new DotEnvAware(
@@ -114,7 +167,7 @@ final class Application
             ),
             $this->enableSilentCartographer,
             $this->useResilientOperatingSystem,
-            [],
+            $this->disabledSections,
         );
     }
 
@@ -123,11 +176,12 @@ final class Application
         return new self(
             $this->env,
             $this->os,
+            $this->container,
             $this->commands,
             $this->loadDotEnv,
             static fn(Environment $env, OperatingSystem $os): OperatingSystem => $os,
             $this->useResilientOperatingSystem,
-            [],
+            $this->disabledSections,
         );
     }
 
@@ -139,6 +193,7 @@ final class Application
         return new self(
             $this->env,
             $this->os,
+            $this->container,
             $this->commands,
             $this->loadDotEnv,
             $this->enableSilentCartographer,
@@ -155,6 +210,7 @@ final class Application
         return new self(
             $this->env,
             $this->os,
+            $this->container,
             $this->commands,
             $this->loadDotEnv,
             $this->enableSilentCartographer,
@@ -190,7 +246,8 @@ final class Application
             );
         }
 
-        $commands = ($this->commands)($env, $os);
+        $container = ($this->container)($env, $os);
+        $commands = ($this->commands)($env, $os, $container);
         $commands = \count($commands) === 0 ? [new HelloWorld] : $commands;
 
         /** @var list<Command> */
