@@ -141,7 +141,7 @@ final class Application
             $this->os,
             fn(Environment $env, OperatingSystem $os): Container => ($this->container)($env, $os)->add(
                 $name,
-                fn(ServiceLocator $get): object => $factory($env, $os, $get),
+                static fn(ServiceLocator $get): object => $factory($env, $os, $get),
             ),
             $this->commands,
             $this->loadDotEnv,
