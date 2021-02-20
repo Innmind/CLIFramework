@@ -1,7 +1,7 @@
 # CLI Framework
 
 [![codecov](https://codecov.io/gh/Innmind/CLIFramework/branch/develop/graph/badge.svg)](https://codecov.io/gh/Innmind/CLIFramework)
-[![Build Status](https://github.com/Innmind/CLIFramework/workflows/CI/badge.svg)](https://github.com/Innmind/CLIFramework/actions?query=workflow%3ACI)
+[![Build Status](https://github.com/Innmind/CLIFramework/workflows/CI/badge.svg?branch=master)](https://github.com/Innmind/CLIFramework/actions?query=workflow%3ACI)
 [![Type Coverage](https://shepherd.dev/github/Innmind/CLIFramework/coverage.svg)](https://shepherd.dev/github/Innmind/CLIFramework)
 
 Small library on top of [`innmind/cli`](https://github.com/innmind/cli) to automatically enable some features.
