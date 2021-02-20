@@ -97,7 +97,7 @@ class ApplicationTest extends TestCase
         $output
             ->expects($this->once())
             ->method('write')
-            ->with($this->callback(function($text) {
+            ->with($this->callback(static function($text) {
                 return !$text->contains('Hello world') &&
                     $text->contains('foo');
             }));
@@ -105,7 +105,7 @@ class ApplicationTest extends TestCase
 
         $app = Application::of($env, $os);
         $app = $app->disableSilentCartographer();
-        $app2 = $app->commands(fn() => [$command]);
+        $app2 = $app->commands(static fn() => [$command]);
 
         $this->assertInstanceOf(Application::class, $app2);
         $this->assertNotSame($app, $app2);
@@ -147,7 +147,7 @@ class ApplicationTest extends TestCase
             ->willReturn($output = $this->createMock(Writable::class));
         $output
             ->method('write')
-            ->with($this->callback(function($text) {
+            ->with($this->callback(static function($text) {
                 return !$text->contains('Hello world') &&
                     ($text->contains('foo') || $text->contains('bar'));
             }));
@@ -155,7 +155,7 @@ class ApplicationTest extends TestCase
 
         $app = Application::of($env, $os);
         $app = $app->disableSilentCartographer();
-        $app2 = $app->commands(fn() => [$foo, $bar]);
+        $app2 = $app->commands(static fn() => [$foo, $bar]);
 
         $this->assertInstanceOf(Application::class, $app2);
         $this->assertNotSame($app, $app2);
@@ -195,7 +195,7 @@ class ApplicationTest extends TestCase
         $app = Application::of($env, $os);
         $app2 = $app
             ->disableSilentCartographer()
-            ->commands(fn() => [$command])
+            ->commands(static fn() => [$command])
             ->configAt($configPath);
 
         $this->assertInstanceOf(Application::class, $app2);
@@ -240,7 +240,7 @@ class ApplicationTest extends TestCase
         $app = Application::of($env, $os);
         $app2 = $app
             ->disableSilentCartographer()
-            ->commands(fn() => [$command])
+            ->commands(static fn() => [$command])
             ->configAt($configPath);
 
         $this->assertInstanceOf(Application::class, $app2);
@@ -343,7 +343,7 @@ class ApplicationTest extends TestCase
         $output
             ->expects($this->once())
             ->method('write')
-            ->with(Str::of("foo"));
+            ->with(Str::of('foo'));
         $os = $this->createMock(OperatingSystem::class);
         $os
             ->method('process')
@@ -395,7 +395,7 @@ class ApplicationTest extends TestCase
         $output
             ->expects($this->once())
             ->method('write')
-            ->with(Str::of("foo"));
+            ->with(Str::of('foo'));
         $os = $this->createMock(OperatingSystem::class);
 
         $command = new class implements Command {
@@ -414,7 +414,7 @@ class ApplicationTest extends TestCase
         $app2 = $app
             ->disableSilentCartographer()
             ->disableProfilerSection(CaptureAppGraph::class)
-            ->commands(fn($env, $os) => [$command]);
+            ->commands(static fn($env, $os) => [$command]);
 
         $this->assertInstanceOf(Application::class, $app2);
         $this->assertNotSame($app2, $app);
@@ -510,7 +510,7 @@ class ApplicationTest extends TestCase
                             return 'foo';
                         }
                     })
-                    ->service($dep, fn() => Str::of($toPrint));
+                    ->service($dep, static fn() => Str::of($toPrint));
 
                 $this->assertNull($app->run());
             });

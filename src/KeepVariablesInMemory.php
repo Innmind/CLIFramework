@@ -16,7 +16,6 @@ use Innmind\Immutable\{
     Map,
     Sequence,
 };
-use Symfony\Component\Dotenv\Dotenv;
 
 final class KeepVariablesInMemory implements Environment
 {
