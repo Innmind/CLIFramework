@@ -15,7 +15,7 @@
         "issues": "http://github.com/Innmind/CLIFramework/issues"
     },
     "require": {
-        "php": "~7.4",
+        "php": "~7.4|~8.0",
         "innmind/cli": "~2.0",
         "symfony/dotenv": "^5.0",
         "innmind/silent-cartographer": "^2.0",
